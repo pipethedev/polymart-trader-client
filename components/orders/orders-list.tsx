@@ -1,0 +1,271 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useOrders, useCancelOrder } from '@/lib/hooks/use-orders';
+import { useUIStore } from '@/lib/store/ui-store';
+import type { Order } from '@/lib/api/types';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { formatDate } from '@/lib/utils/date';
+import { Package } from 'lucide-react';
+
+const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
+  PENDING: 'secondary',
+  QUEUED: 'secondary',
+  PROCESSING: 'default',
+  FILLED: 'default',
+  PARTIALLY_FILLED: 'default',
+  CANCELLED: 'secondary',
+  FAILED: 'destructive',
+};
+
+export function OrdersList() {
+  const {
+    setSelectedOrderId,
+    ordersPage,
+    setOrdersPage,
+    setCreateOrderDialogOpen,
+  } = useUIStore();
+  const [marketIdFilter, setMarketIdFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [sideFilter, setSideFilter] = useState<string>('');
+  const [outcomeFilter, setOutcomeFilter] = useState<string>('');
+
+  const { data, isLoading, error } = useOrders({
+    page: ordersPage,
+    pageSize: 20,
+    marketId: marketIdFilter ? parseInt(marketIdFilter) : undefined,
+    status: (statusFilter || undefined) as Order['status'] | undefined,
+    side: (sideFilter || undefined) as 'BUY' | 'SELL' | undefined,
+    outcome: (outcomeFilter || undefined) as 'YES' | 'NO' | undefined,
+  });
+
+  const cancelOrderMutation = useCancelOrder();
+
+  const handleCancel = async (id: number) => {
+    try {
+      await cancelOrderMutation.mutateAsync(id);
+      toast.success('Order cancelled successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel order');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2 flex-wrap">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="rounded-none">
+              <CardContent className="p-4">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-destructive">
+        Error loading orders: {error.message}
+      </div>
+    );
+  }
+
+  const orders = data?.data || [];
+  const meta = data?.meta;
+
+  const canCancel = (status: string) => {
+    return ['PENDING', 'QUEUED'].includes(status);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2 flex-wrap">
+          <Input
+            placeholder="Market ID"
+            type="number"
+            value={marketIdFilter}
+            onChange={(e) => {
+              setMarketIdFilter(e.target.value);
+              setOrdersPage(1);
+            }}
+            className="w-32"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setOrdersPage(1);
+            }}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+          >
+            <option value="">All Status</option>
+            <option value="PENDING">PENDING</option>
+            <option value="QUEUED">QUEUED</option>
+            <option value="PROCESSING">PROCESSING</option>
+            <option value="FILLED">FILLED</option>
+            <option value="PARTIALLY_FILLED">PARTIALLY_FILLED</option>
+            <option value="CANCELLED">CANCELLED</option>
+            <option value="FAILED">FAILED</option>
+          </select>
+          <select
+            value={sideFilter}
+            onChange={(e) => {
+              setSideFilter(e.target.value);
+              setOrdersPage(1);
+            }}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+          >
+            <option value="">All Sides</option>
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select>
+          <select
+            value={outcomeFilter}
+            onChange={(e) => {
+              setOutcomeFilter(e.target.value);
+              setOrdersPage(1);
+            }}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+          >
+            <option value="">All Outcomes</option>
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+        </div>
+        <Button onClick={() => setCreateOrderDialogOpen(true)}>
+          Create Order
+        </Button>
+      </div>
+
+      {orders.length === 0 ? (
+        <div className="flex items-center justify-center min-h-[400px] flex-col gap-4">
+          <Package className="w-16 h-16 text-muted-foreground/40 animate-pulse group-hover:text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No orders found</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          <AnimatePresence mode="popLayout">
+            {orders.map((order, index) => (
+              <motion.div
+                key={order.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                layout
+              >
+                <Card
+                  className="cursor-pointer hover:border-foreground/50 transition-colors rounded-none"
+                  onClick={() => setSelectedOrderId(order.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Badge variant={order.side === 'BUY' ? 'success' : 'error'}>
+                            {order.side}
+                          </Badge>
+                          <Badge variant="outline">{order.outcome}</Badge>
+                          <Badge variant={statusColors[order.status] || 'secondary'}>
+                            {order.status}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {order.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-muted-foreground">Market:</span>
+                          <span className="font-medium">#{order.marketId}</span>
+                          <span className="text-muted-foreground">Qty:</span>
+                          <span className="font-mono font-semibold">
+                            {parseFloat(order.quantity).toFixed(4)}
+                          </span>
+                          {order.price && (
+                            <>
+                              <span className="text-muted-foreground">Price:</span>
+                              <span className="font-mono">
+                                {typeof order.price === 'string'
+                                  ? parseFloat(order.price).toFixed(4)
+                                  : JSON.stringify(order.price)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(order.createdAt)}
+                        </div>
+                      </div>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {canCancel(order.status) && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleCancel(order.id)}
+                            disabled={cancelOrderMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Page {meta.currentPage} of {meta.totalPages} ({meta.total} total)
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
+              disabled={ordersPage === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() =>
+                setOrdersPage(Math.min(meta.totalPages, ordersPage + 1))
+              }
+              disabled={ordersPage === meta.totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
