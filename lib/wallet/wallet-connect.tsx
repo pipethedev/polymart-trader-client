@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { toast } from 'sonner';
 import { wagmiConfig } from './wallet-config';
 
@@ -43,21 +43,6 @@ export function WalletConnectButton() {
       );
     }
   }, []);
-
-  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
-
-  if (!projectId) {
-    return (
-      <Button
-        onClick={() => setShowModal(true)}
-        disabled
-        variant="outline"
-        className="rounded-none border-gray-300 dark:border-gray-600 bg-transparent hover:bg-transparent text-gray-900 dark:text-gray-100"
-      >
-        Connect Wallet
-      </Button>
-    );
-  }
 
   const handleConnect = async (connector: any) => {
     try {
