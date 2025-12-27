@@ -166,17 +166,17 @@ export function CreateOrderForm() {
               <Form>
                 <div className="grid gap-6 py-4">
                   {(marketErrorMessage || shouldShowValidationErrors) && (
-                    <div className="rounded-lg bg-red-50 p-4">
-                      <div className="text-sm font-semibold text-red-900 mb-2">
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4">
+                      <div className="text-sm font-semibold text-red-900 dark:text-red-200 mb-2">
                         Important message:
                       </div>
                       {marketErrorMessage && (
-                        <div className="text-sm text-red-700 mb-2">{marketErrorMessage}</div>
+                        <div className="text-sm text-red-700 dark:text-red-300 mb-2">{marketErrorMessage}</div>
                       )}
                       {shouldShowValidationErrors && (
                         <ul className="list-disc list-inside space-y-1">
                           {errorMessages.map((error, index) => (
-                            <li key={index} className="text-sm text-red-700">
+                            <li key={index} className="text-sm text-red-700 dark:text-red-300">
                               {error}
                             </li>
                           ))}
@@ -323,7 +323,7 @@ export function CreateOrderForm() {
                     createOrderMutation.isPending ||
                     !!(market && (!market.active || market.closed))
                   }
-                  className={`border-black rounded  bg-black text-white hover:bg-gray-900 ${
+                  className={`border-black rounded bg-black dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white hover:bg-gray-900 ${
                     market && (!market.active || market.closed)
                       ? 'disabled:cursor-not-allowed disabled:opacity-50'
                       : ''

@@ -56,4 +56,8 @@
     color: hsl(var(--foreground));
     font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   }
+  
+  /* .dark img {
+    filter: invert(1);
+  } */
 }

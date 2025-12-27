@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/date';
-import { Package } from 'lucide-react';
+import { Package, AlertCircle, Filter } from 'lucide-react';
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
   PENDING: 'secondary',
@@ -35,15 +37,26 @@ export function OrdersList() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [sideFilter, setSideFilter] = useState<string>('');
   const [outcomeFilter, setOutcomeFilter] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, error } = useOrders({
     page: ordersPage,
-    pageSize: 20,
+    pageSize: 21,
     marketId: marketIdFilter ? parseInt(marketIdFilter) : undefined,
     status: (statusFilter || undefined) as Order['status'] | undefined,
     side: (sideFilter || undefined) as 'BUY' | 'SELL' | undefined,
     outcome: (outcomeFilter || undefined) as 'YES' | 'NO' | undefined,
   });
+
+  const hasActiveFilters = marketIdFilter || statusFilter || sideFilter || outcomeFilter;
+
+  const clearFilters = () => {
+    setMarketIdFilter('');
+    setStatusFilter('');
+    setSideFilter('');
+    setOutcomeFilter('');
+    setOrdersPage(1);
+  };
 
   const cancelOrderMutation = useCancelOrder();
 
@@ -100,62 +113,118 @@ export function OrdersList() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex gap-2 flex-wrap">
-          <Input
-            placeholder="Market ID"
-            type="number"
-            value={marketIdFilter}
-            onChange={(e) => {
-              setMarketIdFilter(e.target.value);
-              setOrdersPage(1);
-            }}
-            className="w-32"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setOrdersPage(1);
-            }}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="cursor-pointer"
           >
-            <option value="">All Status</option>
-            <option value="PENDING">PENDING</option>
-            <option value="QUEUED">QUEUED</option>
-            <option value="PROCESSING">PROCESSING</option>
-            <option value="FILLED">FILLED</option>
-            <option value="PARTIALLY_FILLED">PARTIALLY_FILLED</option>
-            <option value="CANCELLED">CANCELLED</option>
-            <option value="FAILED">FAILED</option>
-          </select>
-          <select
-            value={sideFilter}
-            onChange={(e) => {
-              setSideFilter(e.target.value);
-              setOrdersPage(1);
-            }}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
-          >
-            <option value="">All Sides</option>
-            <option value="BUY">BUY</option>
-            <option value="SELL">SELL</option>
-          </select>
-          <select
-            value={outcomeFilter}
-            onChange={(e) => {
-              setOutcomeFilter(e.target.value);
-              setOrdersPage(1);
-            }}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
-          >
-            <option value="">All Outcomes</option>
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
-          </select>
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+            {hasActiveFilters && (
+              <span className="ml-2 h-2 w-2 rounded-full bg-primary" />
+            )}
+          </Button>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="cursor-pointer"
+            >
+              Clear
+            </Button>
+          )}
         </div>
         <Button onClick={() => setCreateOrderDialogOpen(true)}>
           Create Order
         </Button>
       </div>
+
+      {showFilters && (
+        <Card className="rounded-none">
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Market ID</Label>
+                <Input
+                  type="number"
+                  placeholder="Market ID"
+                  value={marketIdFilter}
+                  onChange={(e) => {
+                    setMarketIdFilter(e.target.value);
+                    setOrdersPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={statusFilter || 'all'}
+                  onValueChange={(value) => {
+                    setStatusFilter(value === 'all' ? '' : value);
+                    setOrdersPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="PENDING">PENDING</SelectItem>
+                    <SelectItem value="QUEUED">QUEUED</SelectItem>
+                    <SelectItem value="PROCESSING">PROCESSING</SelectItem>
+                    <SelectItem value="FILLED">FILLED</SelectItem>
+                    <SelectItem value="PARTIALLY_FILLED">PARTIALLY_FILLED</SelectItem>
+                    <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                    <SelectItem value="FAILED">FAILED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Side</Label>
+                <Select
+                  value={sideFilter || 'all'}
+                  onValueChange={(value) => {
+                    setSideFilter(value === 'all' ? '' : value);
+                    setOrdersPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="All Sides" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sides</SelectItem>
+                    <SelectItem value="BUY">BUY</SelectItem>
+                    <SelectItem value="SELL">SELL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Outcome</Label>
+                <Select
+                  value={outcomeFilter || 'all'}
+                  onValueChange={(value) => {
+                    setOutcomeFilter(value === 'all' ? '' : value);
+                    setOrdersPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="All Outcomes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Outcomes</SelectItem>
+                    <SelectItem value="YES">YES</SelectItem>
+                    <SelectItem value="NO">NO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {orders.length === 0 ? (
         <div className="flex items-center justify-center min-h-[400px] flex-col gap-4">
@@ -175,7 +244,11 @@ export function OrdersList() {
                 layout
               >
                 <Card
-                  className="cursor-pointer hover:border-foreground/50 transition-colors rounded-none"
+                  className={`cursor-pointer hover:border-foreground/50 transition-colors rounded-none ${
+                    order.status === 'FAILED'
+                      ? 'border-2 border-red-500 bg-red-50/30'
+                      : ''
+                  }`}
                   onClick={() => setSelectedOrderId(order.id)}
                 >
                   <CardContent className="p-4">
@@ -186,7 +259,17 @@ export function OrdersList() {
                             {order.side}
                           </Badge>
                           <Badge variant="outline">{order.outcome}</Badge>
-                          <Badge variant={statusColors[order.status] || 'secondary'}>
+                          <Badge
+                            variant={statusColors[order.status] || 'secondary'}
+                            className={
+                              order.status === 'FAILED'
+                                ? 'bg-red-600 text-white font-bold text-sm px-3 py-1'
+                                : ''
+                            }
+                          >
+                            {order.status === 'FAILED' && (
+                              <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+                            )}
                             {order.status}
                           </Badge>
                           <span className="text-sm text-muted-foreground">

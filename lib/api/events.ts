@@ -3,6 +3,7 @@ import type { Event, EventListResponse, SyncResponse } from './types';
 
 export interface GetEventsParams {
   active?: boolean;
+  featured?: boolean;
   search?: string;
   page?: number;
   pageSize?: number;

@@ -1,34 +1,79 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { useMarkets } from '@/lib/hooks/use-markets';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, X } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { ToggleButton } from '@/components/ui/toggle-button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, X, Filter } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
 import { formatVolume } from '@/lib/utils/format';
 import { useDebounce } from '@/lib/hooks/use-debounce';
+import { format } from 'date-fns';
 
 export function MarketsList() {
-  const { selectedMarketId, setSelectedMarketId, marketsPage, setMarketsPage } =
-    useUIStore();
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 500);
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>(
-    undefined
-  );
+  const { 
+    setSelectedMarketId, 
+    marketsPage, 
+    setMarketsPage,
+    marketsFilters,
+    setMarketsFilters,
+  } = useUIStore();
+  
+  const debouncedSearch = useDebounce(marketsFilters.search, 500);
 
   const { data, isLoading, error } = useMarkets({
     page: marketsPage,
-    pageSize: 20,
+    pageSize: 21,
     search: debouncedSearch || undefined,
-    active: activeFilter,
+    active: marketsFilters.activeFilter,
+    closed: marketsFilters.closedFilter,
+    volumeMin: marketsFilters.volumeMin ? parseFloat(marketsFilters.volumeMin) : undefined,
+    volumeMax: marketsFilters.volumeMax ? parseFloat(marketsFilters.volumeMax) : undefined,
+    liquidityMin: marketsFilters.liquidityMin ? parseFloat(marketsFilters.liquidityMin) : undefined,
+    liquidityMax: marketsFilters.liquidityMax ? parseFloat(marketsFilters.liquidityMax) : undefined,
+    createdAtMin: marketsFilters.createdAtMin ? format(marketsFilters.createdAtMin, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
+    createdAtMax: marketsFilters.createdAtMax ? format(marketsFilters.createdAtMax, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
+    updatedAtMin: marketsFilters.updatedAtMin ? format(marketsFilters.updatedAtMin, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
+    updatedAtMax: marketsFilters.updatedAtMax ? format(marketsFilters.updatedAtMax, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
   });
+
+  const clearFilters = () => {
+    setMarketsFilters({
+      search: '',
+      activeFilter: undefined,
+      closedFilter: undefined,
+      volumeMin: '',
+      volumeMax: '',
+      liquidityMin: '',
+      liquidityMax: '',
+      createdAtMin: undefined,
+      createdAtMax: undefined,
+      updatedAtMin: undefined,
+      updatedAtMax: undefined,
+      showFilters: false,
+    });
+    setMarketsPage(1);
+  };
+
+  const hasActiveFilters = 
+    marketsFilters.search || 
+    marketsFilters.activeFilter !== undefined || 
+    marketsFilters.closedFilter !== undefined ||
+    marketsFilters.volumeMin ||
+    marketsFilters.volumeMax ||
+    marketsFilters.liquidityMin ||
+    marketsFilters.liquidityMax ||
+    marketsFilters.createdAtMin ||
+    marketsFilters.createdAtMax ||
+    marketsFilters.updatedAtMin ||
+    marketsFilters.updatedAtMax;
 
   if (isLoading) {
     return (
@@ -46,7 +91,13 @@ export function MarketsList() {
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader>
-                <Skeleton className="h-5 w-full" />
+                <div className="flex items-start gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-full" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
@@ -79,34 +130,180 @@ export function MarketsList() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search markets..."
-            value={search}
+            value={marketsFilters.search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setMarketsFilters({ search: e.target.value });
               setMarketsPage(1);
             }}
             className="pl-9 pr-9"
           />
-          {search && (
+          {marketsFilters.search && (
             <button
               type="button"
               onClick={() => {
-                setSearch('');
+                setMarketsFilters({ search: '' });
                 setMarketsPage(1);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        <ToggleButton
-          value={activeFilter}
-          onValueChange={(value) => {
-            setActiveFilter(value);
-            setMarketsPage(1);
-          }}
-        />
+        <Button
+          variant="outline"
+          onClick={() => setMarketsFilters({ showFilters: !marketsFilters.showFilters })}
+          className="cursor-pointer"
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          Filters
+          {hasActiveFilters && (
+            <span className="ml-2 h-2 w-2 rounded-full bg-primary" />
+          )}
+        </Button>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="cursor-pointer"
+          >
+            Clear
+          </Button>
+        )}
       </div>
+
+      {marketsFilters.showFilters && (
+        <Card className="rounded-none">
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Closed Status</Label>
+                <Select
+                  value={marketsFilters.closedFilter === undefined ? 'all' : marketsFilters.closedFilter ? 'closed' : 'open'}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setMarketsFilters({ closedFilter: undefined });
+                    } else {
+                      setMarketsFilters({ closedFilter: value === 'closed' });
+                    }
+                    setMarketsPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Volume Min</Label>
+                <Input
+                  type="number"
+                  placeholder="Min volume"
+                  value={marketsFilters.volumeMin}
+                  onChange={(e) => {
+                    setMarketsFilters({ volumeMin: e.target.value });
+                    setMarketsPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Volume Max</Label>
+                <Input
+                  type="number"
+                  placeholder="Max volume"
+                  value={marketsFilters.volumeMax}
+                  onChange={(e) => {
+                    setMarketsFilters({ volumeMax: e.target.value });
+                    setMarketsPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Liquidity Min</Label>
+                <Input
+                  type="number"
+                  placeholder="Min liquidity"
+                  value={marketsFilters.liquidityMin}
+                  onChange={(e) => {
+                    setMarketsFilters({ liquidityMin: e.target.value });
+                    setMarketsPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Liquidity Max</Label>
+                <Input
+                  type="number"
+                  placeholder="Max liquidity"
+                  value={marketsFilters.liquidityMax}
+                  onChange={(e) => {
+                    setMarketsFilters({ liquidityMax: e.target.value });
+                    setMarketsPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Created From</Label>
+                <DatePicker
+                  date={marketsFilters.createdAtMin}
+                  onDateChange={(date) => {
+                    setMarketsFilters({ createdAtMin: date });
+                    setMarketsPage(1);
+                  }}
+                  placeholder="Select start date"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Created To</Label>
+                <DatePicker
+                  date={marketsFilters.createdAtMax}
+                  onDateChange={(date) => {
+                    setMarketsFilters({ createdAtMax: date });
+                    setMarketsPage(1);
+                  }}
+                  placeholder="Select end date"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Updated From</Label>
+                <DatePicker
+                  date={marketsFilters.updatedAtMin}
+                  onDateChange={(date) => {
+                    setMarketsFilters({ updatedAtMin: date });
+                    setMarketsPage(1);
+                  }}
+                  placeholder="Select start date"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Updated To</Label>
+                <DatePicker
+                  date={marketsFilters.updatedAtMax}
+                  onDateChange={(date) => {
+                    setMarketsFilters({ updatedAtMax: date });
+                    setMarketsPage(1);
+                  }}
+                  placeholder="Select end date"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {markets.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
@@ -135,31 +332,44 @@ export function MarketsList() {
                     onClick={() => setSelectedMarketId(market.id)}
                   >
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <CardTitle className="text-sm font-semibold leading-tight line-clamp-2 flex-1 text-foreground">
-                      {market.question}
-                    </CardTitle>
-                    <Badge
-                      variant={
-                        market.closed
-                          ? 'error'
+                  <div className="flex items-start gap-3 mb-3">
+                    {market.image && (
+                      <div className="relative shrink-0 w-12 h-12 rounded-full overflow-hidden">
+                        <Image
+                          src={market.image}
+                          alt={market.question}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between gap-3 flex-1 min-w-0">
+                      <CardTitle className="text-sm font-semibold leading-tight line-clamp-2 flex-1 text-foreground">
+                        {market.question}
+                      </CardTitle>
+                      <Badge
+                        variant={
+                          market.closed
+                            ? 'error'
+                            : market.active
+                              ? 'success'
+                              : 'error'
+                        }
+                        className="shrink-0 text-[10px] px-1.5 py-0.5"
+                      >
+                        {market.closed
+                          ? 'Closed'
                           : market.active
-                            ? 'success'
-                            : 'error'
-                      }
-                      className="shrink-0 text-[10px] px-1.5 py-0.5"
-                    >
-                      {market.closed
-                        ? 'Closed'
-                        : market.active
-                          ? 'Active'
-                          : 'Inactive'}
-                    </Badge>
+                            ? 'Active'
+                            : 'Inactive'}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-3.5 rounded-none bg-green-500 hover:bg-green-600 transition-colors">
+                    <div className="p-3.5 rounded-none bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 transition-colors">
                       <div className="text-xs font-semibold text-white uppercase tracking-wide mb-1.5">
                         YES
                       </div>
@@ -167,7 +377,7 @@ export function MarketsList() {
                         {yesPercent}%
                       </div>
                     </div>
-                    <div className="p-3.5 rounded-none bg-red-500 hover:bg-red-600 transition-colors">
+                    <div className="p-3.5 rounded-none bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-colors">
                       <div className="text-xs font-semibold text-white uppercase tracking-wide mb-1.5">
                         NO
                       </div>

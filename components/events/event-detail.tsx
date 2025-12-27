@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEvent, useEventMarkets } from '@/lib/hooks/use-events';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +59,20 @@ export function EventDetail() {
 
       <Card className="rounded-none">
         <CardHeader>
-          <CardTitle>{event.title}</CardTitle>
+          <div className="flex items-start gap-3">
+            {event.image && (
+              <div className="relative shrink-0 w-12 h-12 rounded-full overflow-hidden">
+                <Image
+                  src={event.image}
+                  alt={event.title}
+                  fill
+                  className="object-cover"
+                  sizes="48px"
+                />
+              </div>
+            )}
+            <CardTitle className="flex-1">{event.title}</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

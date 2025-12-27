@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateFull } from '@/lib/utils/date';
 
@@ -81,11 +81,39 @@ export function OrderDetail() {
         Back to Orders
       </Button>
 
-      <Card className="rounded-none">
+      {order.status === 'FAILED' && (
+        <div className="bg-red-50 border border-red-500 rounded-none p-4 mb-4">
+          <div className="flex items-center gap-3">
+            <XCircle className="h-6 w-6 text-red-600 shrink-0" />
+            <div className="flex-1">
+              <div className="text-lg font-bold text-red-900 mb-1">
+                Order Failed
+              </div>
+              {order.failureReason && (
+                <div className="text-sm text-red-700">
+                  {typeof order.failureReason === 'string'
+                    ? order.failureReason
+                    : JSON.stringify(order.failureReason)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card className={`rounded-none `}>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Order #{order.id}</CardTitle>
-            <Badge variant={statusColors[order.status] || 'secondary'}>
+            <Badge
+              variant={statusColors[order.status] || 'secondary'}
+              className={
+                order.status === 'FAILED'
+                  ? 'bg-red-600 text-white text-base px-4 py-2 font-bold'
+                  : ''
+              }
+            >
+              {order.status === 'FAILED' && <AlertCircle className="mr-2 h-4 w-4" />}
               {order.status}
             </Badge>
           </div>
@@ -188,12 +216,12 @@ export function OrderDetail() {
             </div>
           </div>
 
-          {order.failureReason && (
-            <div>
-              <div className="text-sm font-medium text-muted-foreground mb-2">
+          {order.failureReason && order.status !== 'FAILED' && (
+            <div className="bg-red-50 border border-red-200 rounded-none p-3">
+              <div className="text-sm font-semibold text-red-900 mb-1">
                 Failure Reason
               </div>
-              <div className="text-sm text-destructive">
+              <div className="text-sm text-red-700">
                 {typeof order.failureReason === 'string'
                   ? order.failureReason
                   : JSON.stringify(order.failureReason)}

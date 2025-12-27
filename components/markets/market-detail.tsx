@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useMarket } from '@/lib/hooks/use-markets';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,25 +64,39 @@ export function MarketDetail() {
 
       <Card className="rounded-none overflow-hidden">
         <CardHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <CardTitle className="text-2xl leading-tight pr-4">
-              {market.question}
-            </CardTitle>
-            <Badge
-              variant={
-                market.closed
-                  ? 'error'
+          <div className="flex items-start gap-3">
+            {market.image && (
+              <div className="relative shrink-0 w-12 h-12 rounded-full overflow-hidden">
+                <Image
+                  src={market.image}
+                  alt={market.question}
+                  fill
+                  className="object-cover"
+                  sizes="48px"
+                />
+              </div>
+            )}
+            <div className="flex items-start justify-between flex-1 min-w-0">
+              <CardTitle className="text-2xl leading-tight pr-4 flex-1">
+                {market.question}
+              </CardTitle>
+              <Badge
+                variant={
+                  market.closed
+                    ? 'error'
+                    : market.active
+                      ? 'success'
+                      : 'error'
+                }
+                className="shrink-0"
+              >
+                {market.closed
+                  ? 'Closed'
                   : market.active
-                    ? 'success'
-                    : 'error'
-              }
-            >
-              {market.closed
-                ? 'Closed'
-                : market.active
-                  ? 'Active'
-                  : 'Inactive'}
-            </Badge>
+                    ? 'Active'
+                    : 'Inactive'}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -98,7 +113,7 @@ export function MarketDetail() {
                   price: yesPrice.toFixed(4),
                 });
               }}
-              className="p-8 rounded-none bg-green-500 hover:bg-green-600 transition-colors text-left cursor-pointer"
+              className="p-8 rounded-none bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 transition-colors text-left cursor-pointer"
             >
               <div className="text-sm font-semibold text-white uppercase tracking-wide mb-4">
                 YES
@@ -121,7 +136,7 @@ export function MarketDetail() {
                   price: noPrice.toFixed(4),
                 });
               }}
-              className="p-8 rounded-none bg-red-500 hover:bg-red-600 transition-colors text-left cursor-pointer"
+              className="p-8 rounded-none bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-colors text-left cursor-pointer"
             >
               <div className="text-sm font-semibold text-white uppercase tracking-wide mb-4">
                 NO

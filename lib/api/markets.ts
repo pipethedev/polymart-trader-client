@@ -4,7 +4,16 @@ import type { Market, MarketListResponse } from './types';
 export interface GetMarketsParams {
   eventId?: number;
   active?: boolean;
+  closed?: boolean;
   search?: string;
+  volumeMin?: number;
+  volumeMax?: number;
+  liquidityMin?: number;
+  liquidityMax?: number;
+  createdAtMin?: string;
+  createdAtMax?: string;
+  updatedAtMin?: string;
+  updatedAtMax?: string;
   page?: number;
   pageSize?: number;
   limit?: number;

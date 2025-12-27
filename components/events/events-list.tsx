@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { useEvents } from '@/lib/hooks/use-events';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Input } from '@/components/ui/input';
@@ -9,26 +9,45 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ToggleButton } from '@/components/ui/toggle-button';
-import { Search, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, X, Filter } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 
 export function EventsList() {
-  const { setSelectedEventId, eventsPage, setEventsPage } = useUIStore();
+  const { 
+    setSelectedEventId, 
+    eventsPage, 
+    setEventsPage,
+    eventsFilters,
+    setEventsFilters,
+  } = useUIStore();
     
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 500);
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>(
-    undefined
-  );
+  const debouncedSearch = useDebounce(eventsFilters.search, 500);
 
   const { data, isLoading, error } = useEvents({
     page: eventsPage,
-    pageSize: 20,
+    pageSize: 21,
     search: debouncedSearch || undefined,
-    active: activeFilter,
+    active: eventsFilters.activeFilter,
+    featured: eventsFilters.featuredFilter,
   });
+
+  const hasActiveFilters = 
+    eventsFilters.search || 
+    eventsFilters.activeFilter !== undefined || 
+    eventsFilters.featuredFilter !== undefined;
+
+  const clearFilters = () => {
+    setEventsFilters({
+      search: '',
+      activeFilter: undefined,
+      featuredFilter: undefined,
+      showFilters: false,
+    });
+    setEventsPage(1);
+  };
 
   if (isLoading) {
     return (
@@ -45,7 +64,13 @@ export function EventsList() {
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader>
-                <Skeleton className="h-6 w-full" />
+                <div className="flex items-start gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-full" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Skeleton className="h-4 w-32" />
@@ -70,39 +95,109 @@ export function EventsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search events..."
-            value={search}
+            value={eventsFilters.search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setEventsFilters({ search: e.target.value });
               setEventsPage(1);
             }}
             className="pl-9 pr-9"
           />
-          {search && (
+          {eventsFilters.search && (
             <button
               type="button"
               onClick={() => {
-                setSearch('');
+                setEventsFilters({ search: '' });
                 setEventsPage(1);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        <ToggleButton
-          value={activeFilter}
-          onValueChange={(value) => {
-            setActiveFilter(value);
-            setEventsPage(1);
-          }}
-        />
+        <Button
+          variant="outline"
+          onClick={() => setEventsFilters({ showFilters: !eventsFilters.showFilters })}
+          className="cursor-pointer"
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          Filters
+          {hasActiveFilters && (
+            <span className="ml-2 h-2 w-2 rounded-full bg-primary" />
+          )}
+        </Button>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="cursor-pointer"
+          >
+            Clear
+          </Button>
+        )}
       </div>
+
+      {eventsFilters.showFilters && (
+        <Card className="rounded-none">
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Active Status</Label>
+                <Select
+                  value={eventsFilters.activeFilter === undefined ? 'all' : eventsFilters.activeFilter ? 'active' : 'inactive'}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setEventsFilters({ activeFilter: undefined });
+                    } else {
+                      setEventsFilters({ activeFilter: value === 'active' });
+                    }
+                    setEventsPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Featured Status</Label>
+                <Select
+                  value={eventsFilters.featuredFilter === undefined ? 'all' : eventsFilters.featuredFilter ? 'featured' : 'not-featured'}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setEventsFilters({ featuredFilter: undefined });
+                    } else {
+                      setEventsFilters({ featuredFilter: value === 'featured' });
+                    }
+                    setEventsPage(1);
+                  }}
+                >
+                  <SelectTrigger className="cursor-pointer">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="featured">Featured</SelectItem>
+                    <SelectItem value="not-featured">Not Featured</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
         {events.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
@@ -125,13 +220,26 @@ export function EventsList() {
                   onClick={() => setSelectedEventId(event.id)}
                 >
               <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-lg leading-tight flex-1">
-                    {event.title}
-                  </CardTitle>
-                  <Badge variant={event.active ? 'success' : 'error'} className="shrink-0">
-                    {event.active ? 'Active' : 'Inactive'}
-                  </Badge>
+                <div className="flex items-start gap-3">
+                  {event.image && (
+                    <div className="relative shrink-0 w-12 h-12 rounded-full overflow-hidden">
+                      <Image
+                        src={event.image}
+                        alt={event.title}
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between gap-2 flex-1 min-w-0">
+                    <CardTitle className="text-lg leading-tight flex-1">
+                      {event.title}
+                    </CardTitle>
+                    <Badge variant={event.active ? 'success' : 'error'} className="shrink-0">
+                      {event.active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

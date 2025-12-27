@@ -11,9 +11,11 @@ export interface Event {
   title: string;
   description?: any;
   slug?: any;
+  image?: string | null;
   startDate?: any;
   endDate?: any;
   active: boolean;
+  featured: boolean;
   createdAt: string;
   updatedAt: string;
   marketCount?: number;
@@ -32,6 +34,7 @@ export interface Market {
   eventId: number;
   question: string;
   description?: any;
+  image?: string | null;
   outcomeYesPrice: string;
   outcomeNoPrice: string;
   volume?: any;
