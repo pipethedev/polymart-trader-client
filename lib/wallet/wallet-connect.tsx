@@ -51,7 +51,8 @@ export function WalletConnectButton() {
       <Button
         onClick={() => setShowModal(true)}
         disabled
-        className="rounded-none border border-black bg-white hover:bg-gray-50"
+        variant="outline"
+        className="rounded-none border-gray-300 dark:border-gray-600 bg-transparent hover:bg-transparent text-gray-900 dark:text-gray-100"
       >
         Connect Wallet
       </Button>
@@ -135,13 +136,13 @@ export function WalletConnectButton() {
     }
   }, [isConnected, chainId, expectedChainId, switchChain]);
 
-  // Prevent hydration mismatch by not rendering wallet-dependent UI until mounted
   if (!mounted) {
     return (
       <Button
         onClick={() => setShowModal(true)}
         disabled
-        className="rounded-none border border-black bg-white hover:bg-gray-50"
+        variant="outline"
+        className="rounded-none border-gray-300 dark:border-gray-600 bg-transparent hover:bg-transparent text-gray-900 dark:text-gray-100"
       >
         Connect Wallet
       </Button>
@@ -174,7 +175,8 @@ export function WalletConnectButton() {
       <Button
         onClick={() => setShowModal(true)}
         disabled={isPending}
-        className="rounded-none bg-white hover:bg-gray-50"
+        variant="outline"
+        className="rounded-none border-gray-300 dark:border-gray-600 bg-transparent hover:bg-transparent text-gray-900 dark:text-gray-100"
       >
         {isPending ? 'Connecting...' : 'Connect Wallet'}
       </Button>
