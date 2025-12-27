@@ -1,46 +1,62 @@
+import { formatDistanceToNow, format, isValid, parseISO } from 'date-fns';
+
+/**
+ * Formats a date as a relative time string (e.g., "2 hours ago", "3 days ago")
+ */
 export function formatDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  let d: Date;
   
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - d.getTime()) / 1000);
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  const diffInDays = Math.floor(diffInHours / 24);
-
-  if (diffInSeconds < 60) {
-    return 'Just now';
+  if (typeof date === 'string') {
+    // Handle empty strings
+    if (!date || date.trim() === '') {
+      return 'Invalid date';
+    }
+    
+    // Try parsing as ISO first, then fall back to Date constructor
+    try {
+      d = parseISO(date);
+    } catch {
+      d = new Date(date);
+    }
+  } else {
+    d = date;
   }
-
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+  
+  // Check if date is valid
+  if (!isValid(d)) {
+    console.warn('Invalid date:', date);
+    return 'Invalid date';
   }
-
-  if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
-  }
-
-  if (diffInDays < 7) {
-    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
-  }
-
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  
+  // Use date-fns formatDistanceToNow for relative time
+  return formatDistanceToNow(d, { addSuffix: true });
 }
 
+/**
+ * Formats a date as a full date string (e.g., "January 15, 2024, 10:30 AM")
+ */
 export function formatDateFull(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  let d: Date;
   
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  if (typeof date === 'string') {
+    if (!date || date.trim() === '') {
+      return 'Invalid date';
+    }
+    
+    try {
+      d = parseISO(date);
+    } catch {
+      d = new Date(date);
+    }
+  } else {
+    d = date;
+  }
+  
+  if (!isValid(d)) {
+    console.warn('Invalid date:', date);
+    return 'Invalid date';
+  }
+  
+  return format(d, 'MMMM d, yyyy, h:mm a');
 }
 

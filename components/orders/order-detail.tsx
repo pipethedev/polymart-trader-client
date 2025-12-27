@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, AlertCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateFull } from '@/lib/utils/date';
+import { normalizeError } from '@/lib/utils/error-normalizer';
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
   PENDING: 'secondary',
@@ -66,7 +67,8 @@ export function OrderDetail() {
       await cancelOrderMutation.mutateAsync(order.id);
       toast.success('Order cancelled successfully');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel order');
+      const normalized = normalizeError(error);
+      toast.error(normalized.message);
     }
   };
 
@@ -82,20 +84,35 @@ export function OrderDetail() {
       </Button>
 
       {order.status === 'FAILED' && (
-        <div className="bg-red-50 border border-red-500 rounded-none p-4 mb-4">
-          <div className="flex items-center gap-3">
-            <XCircle className="h-6 w-6 text-red-600 shrink-0" />
+        <div className="bg-red-900/20 border-none dark:border-2 dark:border-red-400 rounded-none p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <XCircle className="h-6 w-6 text-red-700 dark:text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <div className="text-lg font-bold text-red-900 mb-1">
-                Order Failed
+              <div className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+                {order.failureReason
+                  ? normalizeError(order.failureReason).title || 'Order Failed'
+                  : 'Order Failed'}
               </div>
-              {order.failureReason && (
-                <div className="text-sm text-red-700">
-                  {typeof order.failureReason === 'string'
-                    ? order.failureReason
-                    : JSON.stringify(order.failureReason)}
-                </div>
-              )}
+              {order.failureReason && (() => {
+                const normalized = normalizeError(order.failureReason);
+                return (
+                  <div className="space-y-2">
+                    <div className="text-sm text-red-900 dark:text-red-300 font-medium">
+                      {normalized.message}
+                    </div>
+                    {normalized.details && (
+                      <div className="text-sm text-red-800 dark:text-red-400 mt-2 p-3 bg-white dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded">
+                        {normalized.details}
+                      </div>
+                    )}
+                    {normalized.action && (
+                      <div className="text-sm text-red-800 dark:text-red-400 font-semibold mt-2">
+                        {normalized.action}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -210,18 +227,24 @@ export function OrderDetail() {
             </div>
           </div>
 
-          {order.failureReason && order.status !== 'FAILED' && (
-            <div className="bg-red-50 border border-red-200 rounded-none p-3">
-              <div className="text-sm font-semibold text-red-900 mb-1">
-                Failure Reason
+          {order.failureReason && order.status !== 'FAILED' && (() => {
+            const normalized = normalizeError(order.failureReason);
+            return (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-none p-3">
+                <div className="text-sm font-semibold text-red-900 dark:text-red-100 mb-1">
+                  {normalized.title || 'Failure Reason'}
+                </div>
+                <div className="text-sm text-red-700 dark:text-red-300">
+                  {normalized.message}
+                </div>
+                {normalized.details && (
+                  <div className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    {normalized.details}
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-red-700">
-                {typeof order.failureReason === 'string'
-                  ? order.failureReason
-                  : JSON.stringify(order.failureReason)}
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {canCancel && (
             <div className="pt-4">

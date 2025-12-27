@@ -170,7 +170,7 @@ export function WalletConnectButton() {
       <Button
         onClick={() => setShowModal(true)}
         disabled={isPending}
-        className="rounded-none border border-black bg-white hover:bg-gray-50"
+        className="rounded-none bg-white hover:bg-gray-50"
       >
         {isPending ? 'Connecting...' : 'Connect Wallet'}
       </Button>
@@ -241,7 +241,7 @@ export function WalletConnectButton() {
                       variant="outline"
                       onClick={() => handleConnect(connector)}
                       disabled={!isAvailable || isPending}
-                      className="w-full justify-start rounded-none border-black h-auto py-3"
+                      className="w-full justify-start rounded-none border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 h-auto py-3"
                     >
                       <div className="flex items-center gap-3 w-full">
                         {isMetaMask ? (
@@ -275,9 +275,9 @@ export function WalletConnectButton() {
                           <div className="w-8 h-8 shrink-0 bg-gray-200 rounded" />
                         )}
                         <div className="flex-1 text-left">
-                          <div className="font-medium">{displayName}</div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{displayName}</div>
                           {!isAvailable && (
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {isMetaMask ? 'Install MetaMask' : 'Not available'}
                             </div>
                           )}
@@ -288,7 +288,7 @@ export function WalletConnectButton() {
                 });
             })()}
             {connectors.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
                 No wallets available. Please install a wallet extension.
               </p>
             )}

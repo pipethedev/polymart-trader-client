@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { normalizeError } from '@/lib/utils/error-normalizer';
 import { formatDate } from '@/lib/utils/date';
 import { Package, AlertCircle, Filter } from 'lucide-react';
 
@@ -105,7 +106,8 @@ export function OrdersList() {
       await cancelOrderMutation.mutateAsync(id);
       toast.success('Order cancelled successfully');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel order');
+      const normalized = normalizeError(error);
+      toast.error(normalized.message);
     }
   };
 

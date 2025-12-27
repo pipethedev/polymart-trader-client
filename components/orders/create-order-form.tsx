@@ -8,6 +8,12 @@ import { useMarket } from '@/lib/hooks/use-markets';
 import { useSignOrderMessage, generateNonce } from '@/lib/wallet/message-signing';
 import { useAccount } from 'wagmi';
 import {
+  useUsdcBalance,
+  useUsdcAllowance,
+  useApproveUsdcMutation,
+  useGasEstimate,
+} from '@/lib/wallet/usdc-approval';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,6 +34,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatVolume } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { normalizeError } from '@/lib/utils/error-normalizer';
 
 interface FormValues {
   marketId: string;
@@ -36,19 +43,29 @@ interface FormValues {
   outcome: 'YES' | 'NO';
   quantity: string;
   price: string;
+  amount: string;
 }
+
+const MINIMUM_ORDER_VALUE = 1.0;
 
 const validationSchema = Yup.object().shape({
   marketId: Yup.string().required('Market ID is required'),
   side: Yup.string().oneOf(['BUY', 'SELL'], 'Invalid side').required('Side is required'),
   type: Yup.string().oneOf(['MARKET', 'LIMIT'], 'Invalid order type').required('Order type is required'),
   outcome: Yup.string().oneOf(['YES', 'NO'], 'Invalid outcome').required('Outcome is required'),
-  quantity: Yup.string().required('Quantity is required'),
-  price: Yup.string().when('type', {
-    is: 'LIMIT',
-    then: (schema) => schema.required('Price is required for LIMIT orders'),
-    otherwise: (schema) => schema.notRequired(),
-  }),
+  amount: Yup.string()
+    .when('side', {
+      is: 'BUY',
+      then: (schema) => schema
+        .required('Amount is required')
+        .test('min-amount', `Minimum order is $${MINIMUM_ORDER_VALUE}`, function (value) {
+          if (!value) return false;
+          return parseFloat(value) >= MINIMUM_ORDER_VALUE;
+        }),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+  price: Yup.string(),
+  quantity: Yup.string(),
 });
 
 export function CreateOrderForm() {
@@ -59,6 +76,11 @@ export function CreateOrderForm() {
   const { signOrderMessage } = useSignOrderMessage();
   
   const { data: market } = useMarket(createOrderPrefill?.marketId || null);
+  
+  const { data: usdcBalance, refetch: refetchBalance } = useUsdcBalance(address);
+  const { data: usdcAllowance, refetch: refetchAllowance } = useUsdcAllowance(address);
+  const approveUsdcMutation = useApproveUsdcMutation();
+  const { data: gasEstimate } = useGasEstimate();
 
   const getInitialValues = (): FormValues => {
     if (createOrderPrefill && isCreateOrderDialogOpen) {
@@ -69,6 +91,7 @@ export function CreateOrderForm() {
         outcome: createOrderPrefill.outcome || 'YES',
         quantity: '',
         price: createOrderPrefill.price || '',
+        amount: '',
       };
     }
     return {
@@ -78,6 +101,7 @@ export function CreateOrderForm() {
       outcome: 'YES',
       quantity: '',
       price: '',
+      amount: '',
     };
   };
 
@@ -90,6 +114,53 @@ export function CreateOrderForm() {
       if (!isConnected || !address) {
         toast.error('Please connect your wallet to create an order');
         return;
+      }
+
+      if (values.side === 'BUY') {
+        if (values.amount) {
+          const currentPrice = values.outcome === 'YES' 
+            ? parseFloat(market?.outcomeYesPrice || '0.5')
+            : parseFloat(market?.outcomeNoPrice || '0.5');
+          
+          if (currentPrice > 0) {
+            values.quantity = (parseFloat(values.amount) / currentPrice).toFixed(8);
+            
+            if (values.type === 'LIMIT') {
+              values.price = currentPrice.toFixed(2);
+            }
+          }
+        }
+
+        const orderAmount = values.amount ? parseFloat(values.amount) : 0;
+        const bufferAmount = orderAmount * 0.01;
+        const gasFeeUsd = gasEstimate ? parseFloat(gasEstimate.estimatedGasUsd) : 0.0003;
+        const requiredUsdc = orderAmount + bufferAmount + gasFeeUsd;
+        
+        if (usdcBalance === undefined || usdcBalance === null) {
+          toast.error('Please wait for your USDC balance to load');
+          return;
+        }
+        
+        if (usdcBalance < requiredUsdc) {
+          toast.error(
+            `Insufficient USDC balance. Required: ${requiredUsdc.toFixed(2)} USDC, Available: ${usdcBalance.toFixed(2)} USDC. ` +
+            `Please add more USDC to your wallet.`
+          );
+          return;
+        }
+
+        if (usdcAllowance === undefined || usdcAllowance === null) {
+          toast.error('Please wait for your USDC allowance to load');
+          return;
+        }
+        
+        if (usdcAllowance < requiredUsdc) {
+          toast.error(
+            `Insufficient USDC allowance. Required: ${requiredUsdc.toFixed(2)} USDC, Approved: ${usdcAllowance.toFixed(2)} USDC. ` +
+            `Please approve USDC spending first.`
+          );
+          return;
+        }
       }
 
       const idempotencyKey = crypto.randomUUID();
@@ -119,7 +190,8 @@ export function CreateOrderForm() {
       toast.success('Order created successfully');
       setCreateOrderDialogOpen(false, null);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create order');
+      const normalized = normalizeError(error);
+      toast.error(normalized.message);
     }
   };
 
@@ -163,7 +235,7 @@ export function CreateOrderForm() {
             const shouldShowValidationErrors = !isMarketInactive && errorMessages.length > 0;
 
             return (
-              <Form>
+              <Form autoComplete="off">
                 <div className="grid gap-6 py-4">
                   {(marketErrorMessage || shouldShowValidationErrors) && (
                     <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4">
@@ -277,36 +349,134 @@ export function CreateOrderForm() {
                   </Field>
                 </div>
                     
-                <div className={`grid gap-4 ${values.type === 'LIMIT' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  <div className="grid gap-2">
-                    <Label htmlFor="quantity">Quantity *</Label>
-                    <Field name="quantity">
-                      {({ field }: FieldProps) => (
-                        <Input
-                          id="quantity"
-                          type="text"
-                          placeholder="e.g., 100.00000000"
-                          {...field}
-                        />
-                      )}
-                    </Field>
-                  </div>
-                  {values.type === 'LIMIT' && (
+                <div className="grid gap-4">
+                  {values.side === 'BUY' && (
                     <div className="grid gap-2">
-                      <Label htmlFor="price">Price *</Label>
-                      <Field name="price">
-                        {({ field }: FieldProps) => (
+                      <Label htmlFor="amount">Amount to Spend (USD) *</Label>
+                      <Field name="amount">
+                        {({ field, form }: FieldProps) => (
                           <Input
-                            id="price"
-                            type="text"
-                            placeholder="e.g., 0.65000000"
+                            id="amount"
+                            type="number"
+                            step="0.01"
+                            min={MINIMUM_ORDER_VALUE}
+                            placeholder="e.g., 10.00"
+                            autoComplete="off"
                             {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              const amount = parseFloat(e.target.value);
+                              if (!amount) return;
+                              
+                              const currentPrice = values.outcome === 'YES' 
+                                ? parseFloat(market?.outcomeYesPrice || '0.5')
+                                : parseFloat(market?.outcomeNoPrice || '0.5');
+                              
+                              if (currentPrice > 0) {
+                                form.setFieldValue('quantity', (amount / currentPrice).toFixed(8));
+                                
+                                if (values.type === 'LIMIT') {
+                                  form.setFieldValue('price', currentPrice.toFixed(2));
+                                }
+                              }
+                            }}
                           />
                         )}
                       </Field>
                     </div>
                   )}
+                  <Field name="quantity" type="hidden" />
+                  <Field name="price" type="hidden" />
                 </div>
+
+                {isConnected && address && values.side === 'BUY' && (
+                  <div className="space-y-3 p-4 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">USDC Information</div>
+                    
+                    {usdcBalance === undefined || usdcBalance === null ? (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Loading balance...</div>
+                    ) : (
+                      <div className="text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Balance: </span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{usdcBalance.toFixed(2)} USDC</span>
+                      </div>
+                    )}
+
+                    {usdcAllowance === undefined || usdcAllowance === null ? (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Loading allowance...</div>
+                    ) : (
+                      <div className="text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Approved: </span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{usdcAllowance.toFixed(2)} USDC</span>
+                      </div>
+                    )}
+
+                    {values.amount && parseFloat(values.amount) > 0 && (
+                      <>
+                        {(() => {
+                          const orderAmount = parseFloat(values.amount);
+                          const bufferAmount = orderAmount * 0.01;
+                          const gasFeeUsd = gasEstimate ? parseFloat(gasEstimate.estimatedGasUsd) : 0.0003;
+                          const requiredAmount = orderAmount + bufferAmount + gasFeeUsd;
+                            
+                          if (usdcBalance === undefined || usdcBalance === null) {
+                            return null;
+                          }
+                          
+                          if (usdcBalance < requiredAmount) {
+                            return null;
+                          }
+                          
+                          if (usdcAllowance === undefined || usdcAllowance === null) {
+                            return null;
+                          }
+                          
+                          const hasInsufficientAllowance = requiredAmount > (usdcAllowance + 0.01);
+                          
+                          if (hasInsufficientAllowance) {
+                            const approvalAmount = (requiredAmount * 1.2).toFixed(2);
+                            
+                            return (
+                              <div className="space-y-2 mt-3">
+                                <div className="text-sm text-amber-600 dark:text-amber-400">
+                                  Please approve USDC spending to continue
+                                </div>
+                                {gasEstimate && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    Includes ~${gasFeeUsd.toFixed(4)} gas fee
+                                  </div>
+                                )}
+                                <Button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await approveUsdcMutation.mutateAsync(approvalAmount);
+                                      setTimeout(() => {
+                                        refetchAllowance();
+                                      }, 2000);
+                                    } catch (error: any) {
+                                      const normalized = normalizeError(error);
+                                      toast.error(normalized.message);
+                                    }
+                                  }}
+                                  disabled={approveUsdcMutation.isPending}
+                                  className="w-full"
+                                  variant="outline"
+                                >
+                                  {approveUsdcMutation.isPending
+                                    ? 'Approving...'
+                                    : 'Approve USDC Spending'}
+                                </Button>
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button
@@ -318,22 +488,56 @@ export function CreateOrderForm() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={
-                    isSubmitting ||
-                    createOrderMutation.isPending ||
-                    !!(market && (!market.active || market.closed))
-                  }
+                  disabled={(() => {  
+                    if (isSubmitting || createOrderMutation.isPending) return true;
+                    if (market && (!market.active || market.closed)) return true;
+                    
+                    if (values.side === 'BUY' && isConnected && address && values.amount) {
+                      const requiredUsdc = parseFloat(values.amount) * 1.01;
+                      
+                      if (approveUsdcMutation.isPending) return true;
+                      
+                      if (usdcBalance !== undefined && usdcBalance !== null && usdcBalance < requiredUsdc) {
+                        return true;
+                      }
+                      
+                      if (usdcAllowance !== undefined && usdcAllowance !== null && usdcAllowance < requiredUsdc) {
+                        return true;
+                      }
+                    }
+                    
+                    return false;
+                  })()}
                   className={`border-black rounded bg-black dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white hover:bg-gray-900 ${
                     market && (!market.active || market.closed)
                       ? 'disabled:cursor-not-allowed disabled:opacity-50'
                       : ''
                   }`}
                 >
-                  {createOrderMutation.isPending
-                    ? 'Creating...'
-                    : market && (!market.active || market.closed)
-                      ? 'Market Not Active'
-                      : 'Create Order'}
+                  {(() => {
+                    if (createOrderMutation.isPending) return 'Creating...';
+                    if (approveUsdcMutation.isPending) return 'Approving...';
+                    if (market && (!market.active || market.closed)) return 'Market Not Active';
+                    
+                    if (values.side === 'BUY' && isConnected && address && values.amount) {
+                      const orderAmount = parseFloat(values.amount);
+                      
+                      const bufferAmount = orderAmount * 0.01;
+
+                      const gasFeeUsd = gasEstimate ? parseFloat(gasEstimate.estimatedGasUsd) : 0.0003;
+                      
+                      const requiredUsdc = orderAmount + bufferAmount + gasFeeUsd;
+                      
+                      if (usdcBalance !== undefined && usdcBalance !== null && usdcBalance < requiredUsdc) {
+                        return 'Insufficient Balance';
+                      }
+                      if (usdcAllowance !== undefined && usdcAllowance !== null && usdcAllowance < requiredUsdc) {
+                        return 'Approve USDC First';
+                      }
+                    }
+                    
+                    return 'Create Order';
+                  })()}
                 </Button>
               </DialogFooter>
             </Form>
