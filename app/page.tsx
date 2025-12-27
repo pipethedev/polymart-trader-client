@@ -10,7 +10,6 @@ import { OrderDetail } from '@/components/orders/order-detail';
 import { CreateOrderForm } from '@/components/orders/create-order-form';
 import { useUIStore } from '@/lib/store/ui-store';
 import { WalletConnectButton } from '@/lib/wallet/wallet-connect';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function Home() {
   const {
@@ -55,7 +54,6 @@ export default function Home() {
             </p>
           </div>
           <div className="shrink-0 flex items-center gap-4">
-            <ThemeToggle />
             <WalletConnectButton />
           </div>
         </div>

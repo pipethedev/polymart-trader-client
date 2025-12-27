@@ -48,8 +48,12 @@ export function WalletConnectButton() {
 
   if (!projectId) {
     return (
-      <Button variant="outline" disabled className="rounded-none border-black">
-        WalletConnect Not Configured
+      <Button
+        onClick={() => setShowModal(true)}
+        disabled
+        className="rounded-none border border-black bg-white hover:bg-gray-50"
+      >
+        Connect Wallet
       </Button>
     );
   }

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useUIStore } from '@/lib/store/ui-store';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const theme = useUIStore((state) => state.theme);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -17,12 +16,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     
     const root = document.documentElement;
     
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, [theme, mounted]);
+    root.classList.add('dark');
+  }, [mounted]);
 
   return <>{children}</>;
 }
