@@ -23,7 +23,7 @@ export function MarketDetail() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-32" />
-        <Card>
+        <Card className="dark:border-0">
           <CardHeader>
             <Skeleton className="h-8 w-3/4" />
           </CardHeader>
@@ -151,7 +151,7 @@ export function MarketDetail() {
           </div>
 
           {/* Market Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-dashed">
             {market.volume && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">

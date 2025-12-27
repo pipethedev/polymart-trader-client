@@ -23,7 +23,7 @@ export function EventDetail() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-32" />
-        <Card>
+        <Card className="dark:border-0">
           <CardHeader>
             <Skeleton className="h-8 w-3/4" />
           </CardHeader>

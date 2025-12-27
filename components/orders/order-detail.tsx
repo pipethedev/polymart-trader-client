@@ -33,7 +33,7 @@ export function OrderDetail() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-32" />
-        <Card className="rounded-none">
+        <Card className="rounded-none dark:border-0">
           <CardHeader>
             <div className="flex justify-between items-center">
               <Skeleton className="h-8 w-32" />
@@ -184,12 +184,6 @@ export function OrderDetail() {
                 </div>
               </div>
             )}
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Idempotency Key
-              </div>
-              <div className="font-mono text-xs break-all">{order.idempotencyKey}</div>
-            </div>
             {order.externalOrderId && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground">

@@ -27,20 +27,22 @@ export function WalletConnectButton() {
   const [showModal, setShowModal] = useState(false);
   const [hasMetaMask, setHasMetaMask] = useState(false);
   const [isMetaMaskProvider, setIsMetaMaskProvider] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const expectedChainId = wagmiConfig.chains[0]?.id;
 
-      useEffect(() => {
-        if (typeof window !== 'undefined') {
-          const ethereum = window.ethereum;
-          setHasMetaMask(!!ethereum);
-          setIsMetaMaskProvider(
-            !!ethereum &&
-            (ethereum.isMetaMask || 
-             (ethereum.providers && ethereum.providers.some((p: any) => p.isMetaMask)))
-          );
-        }
-      }, []);
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      const ethereum = window.ethereum;
+      setHasMetaMask(!!ethereum);
+      setIsMetaMaskProvider(
+        !!ethereum &&
+        (ethereum.isMetaMask || 
+         (ethereum.providers && ethereum.providers.some((p: any) => p.isMetaMask)))
+      );
+    }
+  }, []);
 
   const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
@@ -58,10 +60,9 @@ export function WalletConnectButton() {
         { connector },
         {
           onSuccess: async (data) => {
-            // After successful connection, check if we need to switch chains
             if (expectedChainId && data.chainId !== expectedChainId) {
               try {
-                await switchChain({ chainId: expectedChainId });
+                switchChain({ chainId: expectedChainId });
                 toast.success(`Switched to ${wagmiConfig.chains[0]?.name}`);
               } catch (switchError: any) {
                 if (
@@ -129,6 +130,19 @@ export function WalletConnectButton() {
       });
     }
   }, [isConnected, chainId, expectedChainId, switchChain]);
+
+  // Prevent hydration mismatch by not rendering wallet-dependent UI until mounted
+  if (!mounted) {
+    return (
+      <Button
+        onClick={() => setShowModal(true)}
+        disabled
+        className="rounded-none border border-black bg-white hover:bg-gray-50"
+      >
+        Connect Wallet
+      </Button>
+    );
+  }
 
   if (isConnected && address) {
     return (

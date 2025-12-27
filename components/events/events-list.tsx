@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useEvents } from '@/lib/hooks/use-events';
@@ -18,21 +19,36 @@ import { useDebounce } from '@/lib/hooks/use-debounce';
 export function EventsList() {
   const { 
     setSelectedEventId, 
-    eventsPage, 
-    setEventsPage,
     eventsFilters,
     setEventsFilters,
   } = useUIStore();
     
   const debouncedSearch = useDebounce(eventsFilters.search, 500);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, error } = useEvents({
-    page: eventsPage,
-    pageSize: 21,
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useEvents({
     search: debouncedSearch || undefined,
     active: eventsFilters.activeFilter,
     featured: eventsFilters.featuredFilter,
   });
+
+  const allEvents = data?.pages.flatMap(page => page.data) || [];
+
+  const eventsMap = new Map<number, typeof allEvents[0]>();
+  allEvents.forEach(event => {
+    if (!eventsMap.has(event.id)) {
+      eventsMap.set(event.id, event);
+    }
+  });
+  
+  const events = Array.from(eventsMap.values());
 
   const hasActiveFilters = 
     eventsFilters.search || 
@@ -46,8 +62,32 @@ export function EventsList() {
       featuredFilter: undefined,
       showFilters: false,
     });
-    setEventsPage(1);
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '200px'
+      }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   if (isLoading) {
     return (
@@ -62,7 +102,7 @@ export function EventsList() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className="dark:border-0">
               <CardHeader>
                 <div className="flex items-start gap-3">
                   <Skeleton className="h-12 w-12 rounded-full shrink-0" />
@@ -90,9 +130,6 @@ export function EventsList() {
     );
   }
 
-  const events = data?.data || [];
-  const meta = data?.meta;
-
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -103,7 +140,6 @@ export function EventsList() {
             value={eventsFilters.search}
             onChange={(e) => {
               setEventsFilters({ search: e.target.value });
-              setEventsPage(1);
             }}
             className="pl-9 pr-9"
           />
@@ -112,7 +148,6 @@ export function EventsList() {
               type="button"
               onClick={() => {
                 setEventsFilters({ search: '' });
-                setEventsPage(1);
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
@@ -157,7 +192,6 @@ export function EventsList() {
                     } else {
                       setEventsFilters({ activeFilter: value === 'active' });
                     }
-                    setEventsPage(1);
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -181,7 +215,6 @@ export function EventsList() {
                     } else {
                       setEventsFilters({ featuredFilter: value === 'featured' });
                     }
-                    setEventsPage(1);
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -255,35 +288,36 @@ export function EventsList() {
         </div>
       )}
 
-      {meta && meta.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {meta.currentPage} of {meta.totalPages} ({meta.total} total)
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => setEventsPage(Math.max(1, eventsPage - 1))}
-              disabled={eventsPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() =>
-                setEventsPage(Math.min(meta.totalPages, eventsPage + 1))
-              }
-              disabled={eventsPage === meta.totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Infinite scroll trigger and loading indicator */}
+      <div ref={loadMoreRef} className="py-8 flex flex-col items-center justify-center gap-4">
+        {isFetchingNextPage && (
+          <>
+            <div className="flex items-center gap-2 text-sm text-foreground dark:text-gray-300">
+              <div className="h-4 w-4 border-2 border-foreground dark:border-gray-300 border-t-transparent rounded-full animate-spin" />
+              <span>Loading more events...</span>
+            </div>
+            {/* Show skeleton loaders while fetching */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={`loading-${i}`} className="dark:border-0">
+                  <CardHeader>
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-6 w-full" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

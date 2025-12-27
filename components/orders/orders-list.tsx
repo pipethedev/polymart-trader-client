@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOrders, useCancelOrder } from '@/lib/hooks/use-orders';
 import { useUIStore } from '@/lib/store/ui-store';
@@ -29,8 +29,6 @@ const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
 export function OrdersList() {
   const {
     setSelectedOrderId,
-    ordersPage,
-    setOrdersPage,
     setCreateOrderDialogOpen,
   } = useUIStore();
   const [marketIdFilter, setMarketIdFilter] = useState<string>('');
@@ -38,15 +36,33 @@ export function OrdersList() {
   const [sideFilter, setSideFilter] = useState<string>('');
   const [outcomeFilter, setOutcomeFilter] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, error } = useOrders({
-    page: ordersPage,
-    pageSize: 21,
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useOrders({
     marketId: marketIdFilter ? parseInt(marketIdFilter) : undefined,
     status: (statusFilter || undefined) as Order['status'] | undefined,
     side: (sideFilter || undefined) as 'BUY' | 'SELL' | undefined,
     outcome: (outcomeFilter || undefined) as 'YES' | 'NO' | undefined,
   });
+
+  const allOrders = data?.pages.flatMap(page => page.data) || [];
+  
+  const ordersMap = new Map<number, typeof allOrders[0]>();
+
+  allOrders.forEach(order => {
+    if (!ordersMap.has(order.id)) {
+      ordersMap.set(order.id, order);
+    }
+  });
+  
+  const orders = Array.from(ordersMap.values());
 
   const hasActiveFilters = marketIdFilter || statusFilter || sideFilter || outcomeFilter;
 
@@ -55,8 +71,32 @@ export function OrdersList() {
     setStatusFilter('');
     setSideFilter('');
     setOutcomeFilter('');
-    setOrdersPage(1);
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '200px'
+      }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const cancelOrderMutation = useCancelOrder();
 
@@ -83,7 +123,7 @@ export function OrdersList() {
         </div>
         <div className="grid gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="rounded-none">
+            <Card key={i} className="rounded-none dark:border-0">
               <CardContent className="p-4">
                 <Skeleton className="h-20 w-full" />
               </CardContent>
@@ -101,9 +141,6 @@ export function OrdersList() {
       </div>
     );
   }
-
-  const orders = data?.data || [];
-  const meta = data?.meta;
 
   const canCancel = (status: string) => {
     return ['PENDING', 'QUEUED'].includes(status);
@@ -152,7 +189,7 @@ export function OrdersList() {
                   value={marketIdFilter}
                   onChange={(e) => {
                     setMarketIdFilter(e.target.value);
-                    setOrdersPage(1);
+;
                   }}
                 />
               </div>
@@ -163,7 +200,7 @@ export function OrdersList() {
                   value={statusFilter || 'all'}
                   onValueChange={(value) => {
                     setStatusFilter(value === 'all' ? '' : value);
-                    setOrdersPage(1);
+;
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -188,7 +225,7 @@ export function OrdersList() {
                   value={sideFilter || 'all'}
                   onValueChange={(value) => {
                     setSideFilter(value === 'all' ? '' : value);
-                    setOrdersPage(1);
+;
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -208,7 +245,7 @@ export function OrdersList() {
                   value={outcomeFilter || 'all'}
                   onValueChange={(value) => {
                     setOutcomeFilter(value === 'all' ? '' : value);
-                    setOrdersPage(1);
+;
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -244,11 +281,7 @@ export function OrdersList() {
                 layout
               >
                 <Card
-                  className={`cursor-pointer hover:border-foreground/50 transition-colors rounded-none ${
-                    order.status === 'FAILED'
-                      ? 'border-2 border-red-500 bg-red-50/30'
-                      : ''
-                  }`}
+                  className="cursor-pointer hover:border-foreground/50 transition-colors rounded-none"
                   onClick={() => setSelectedOrderId(order.id)}
                 >
                   <CardContent className="p-4">
@@ -319,35 +352,27 @@ export function OrdersList() {
         </div>
       )}
 
-      {meta && meta.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {meta.currentPage} of {meta.totalPages} ({meta.total} total)
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
-              disabled={ordersPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() =>
-                setOrdersPage(Math.min(meta.totalPages, ordersPage + 1))
-              }
-              disabled={ordersPage === meta.totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Infinite scroll trigger and loading indicator */}
+      <div ref={loadMoreRef} className="py-8 flex flex-col items-center justify-center gap-4">
+        {isFetchingNextPage && (
+          <>
+            <div className="flex items-center gap-2 text-sm text-foreground dark:text-gray-300">
+              <div className="h-4 w-4 border-2 border-foreground dark:border-gray-300 border-t-transparent rounded-full animate-spin" />
+              <span>Loading more orders...</span>
+            </div>
+            {/* Show skeleton loaders while fetching */}
+            <div className="grid gap-4 w-full">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={`loading-${i}`} className="rounded-none dark:border-0">
+                  <CardContent className="p-4">
+                    <Skeleton className="h-20 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

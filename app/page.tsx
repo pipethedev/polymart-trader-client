@@ -19,7 +19,30 @@ export default function Home() {
     selectedEventId,
     selectedMarketId,
     selectedOrderId,
+    setSelectedEventId,
+    setSelectedMarketId,
+    setSelectedOrderId,
   } = useUIStore();
+
+  const handleTabChange = (value: string) => {
+    const newTab = value as any;
+    
+    if (newTab === 'markets') {
+      setSelectedMarketId(null);
+    } else if (newTab === 'events') {
+      setSelectedEventId(null);
+    } else if (newTab === 'orders') {
+      setSelectedOrderId(null);
+    }
+    
+    if (newTab !== activeTab) {
+      setSelectedMarketId(null);
+      setSelectedEventId(null);
+      setSelectedOrderId(null);
+    }
+    
+    setActiveTab(newTab);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,11 +60,38 @@ export default function Home() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="markets">Markets</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger 
+              value="markets"
+              onClick={() => {
+                if (activeTab === 'markets' && selectedMarketId) {
+                  setSelectedMarketId(null);
+                }
+              }}
+            >
+              Markets
+            </TabsTrigger>
+            <TabsTrigger 
+              value="events"
+              onClick={() => {
+                if (activeTab === 'events' && selectedEventId) {
+                  setSelectedEventId(null);
+                }
+              }}
+            >
+              Events
+            </TabsTrigger>
+            <TabsTrigger 
+              value="orders"
+              onClick={() => {
+                if (activeTab === 'orders' && selectedOrderId) {
+                  setSelectedOrderId(null);
+                }
+              }}
+            >
+              Orders
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="markets" className="mt-6">

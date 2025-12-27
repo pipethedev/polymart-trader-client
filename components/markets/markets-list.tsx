@@ -1,6 +1,7 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useMarkets } from '@/lib/hooks/use-markets';
 import { useUIStore } from '@/lib/store/ui-store';
@@ -20,17 +21,21 @@ import { format } from 'date-fns';
 export function MarketsList() {
   const { 
     setSelectedMarketId, 
-    marketsPage, 
-    setMarketsPage,
     marketsFilters,
     setMarketsFilters,
   } = useUIStore();
   
   const debouncedSearch = useDebounce(marketsFilters.search, 500);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, error } = useMarkets({
-    page: marketsPage,
-    pageSize: 21,
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useMarkets({
     search: debouncedSearch || undefined,
     active: marketsFilters.activeFilter,
     closed: marketsFilters.closedFilter,
@@ -42,6 +47,32 @@ export function MarketsList() {
     createdAtMax: marketsFilters.createdAtMax ? format(marketsFilters.createdAtMax, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
     updatedAtMin: marketsFilters.updatedAtMin ? format(marketsFilters.updatedAtMin, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
     updatedAtMax: marketsFilters.updatedAtMax ? format(marketsFilters.updatedAtMax, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
+  });
+
+  const allMarkets = data?.pages.flatMap(page => page.data) || [];
+
+  const marketsMap = new Map<number, typeof allMarkets[0]>();
+
+  allMarkets.forEach(market => {
+    const existing = marketsMap.get(market.id);
+    if (!existing) {
+      marketsMap.set(market.id, market);
+    } else {
+      const existingUpdated = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      const currentUpdated = market.updatedAt ? new Date(market.updatedAt).getTime() : 0;
+      if (currentUpdated > existingUpdated) {
+        marketsMap.set(market.id, market);
+      }
+    }
+  });
+  
+  const markets = Array.from(marketsMap.values()).sort((a, b) => {
+    const aUpdated = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const bUpdated = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    if (bUpdated !== aUpdated) {
+      return bUpdated - aUpdated;
+    }
+    return b.id - a.id;
   });
 
   const clearFilters = () => {
@@ -59,8 +90,32 @@ export function MarketsList() {
       updatedAtMax: undefined,
       showFilters: false,
     });
-    setMarketsPage(1);
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '200px'
+      }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const hasActiveFilters = 
     marketsFilters.search || 
@@ -89,7 +144,7 @@ export function MarketsList() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className="dark:border-0">
               <CardHeader>
                 <div className="flex items-start gap-3">
                   <Skeleton className="h-12 w-12 rounded-full shrink-0" />
@@ -120,9 +175,6 @@ export function MarketsList() {
     );
   }
 
-  const markets = data?.data || [];
-  const meta = data?.meta;
-
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -133,7 +185,7 @@ export function MarketsList() {
             value={marketsFilters.search}
             onChange={(e) => {
               setMarketsFilters({ search: e.target.value });
-              setMarketsPage(1);
+;
             }}
             className="pl-9 pr-9"
           />
@@ -142,7 +194,7 @@ export function MarketsList() {
               type="button"
               onClick={() => {
                 setMarketsFilters({ search: '' });
-                setMarketsPage(1);
+;
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
@@ -187,7 +239,7 @@ export function MarketsList() {
                     } else {
                       setMarketsFilters({ closedFilter: value === 'closed' });
                     }
-                    setMarketsPage(1);
+;
                   }}
                 >
                   <SelectTrigger className="cursor-pointer">
@@ -209,7 +261,7 @@ export function MarketsList() {
                   value={marketsFilters.volumeMin}
                   onChange={(e) => {
                     setMarketsFilters({ volumeMin: e.target.value });
-                    setMarketsPage(1);
+;
                   }}
                 />
               </div>
@@ -222,7 +274,7 @@ export function MarketsList() {
                   value={marketsFilters.volumeMax}
                   onChange={(e) => {
                     setMarketsFilters({ volumeMax: e.target.value });
-                    setMarketsPage(1);
+;
                   }}
                 />
               </div>
@@ -235,7 +287,7 @@ export function MarketsList() {
                   value={marketsFilters.liquidityMin}
                   onChange={(e) => {
                     setMarketsFilters({ liquidityMin: e.target.value });
-                    setMarketsPage(1);
+;
                   }}
                 />
               </div>
@@ -248,7 +300,7 @@ export function MarketsList() {
                   value={marketsFilters.liquidityMax}
                   onChange={(e) => {
                     setMarketsFilters({ liquidityMax: e.target.value });
-                    setMarketsPage(1);
+;
                   }}
                 />
               </div>
@@ -259,7 +311,7 @@ export function MarketsList() {
                   date={marketsFilters.createdAtMin}
                   onDateChange={(date) => {
                     setMarketsFilters({ createdAtMin: date });
-                    setMarketsPage(1);
+;
                   }}
                   placeholder="Select start date"
                 />
@@ -271,7 +323,7 @@ export function MarketsList() {
                   date={marketsFilters.createdAtMax}
                   onDateChange={(date) => {
                     setMarketsFilters({ createdAtMax: date });
-                    setMarketsPage(1);
+;
                   }}
                   placeholder="Select end date"
                 />
@@ -283,7 +335,7 @@ export function MarketsList() {
                   date={marketsFilters.updatedAtMin}
                   onDateChange={(date) => {
                     setMarketsFilters({ updatedAtMin: date });
-                    setMarketsPage(1);
+;
                   }}
                   placeholder="Select start date"
                 />
@@ -295,7 +347,7 @@ export function MarketsList() {
                   date={marketsFilters.updatedAtMax}
                   onDateChange={(date) => {
                     setMarketsFilters({ updatedAtMax: date });
-                    setMarketsPage(1);
+;
                   }}
                   placeholder="Select end date"
                 />
@@ -311,22 +363,20 @@ export function MarketsList() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <AnimatePresence mode="popLayout">
-            {markets.map((market, index) => {
-              const yesPrice = parseFloat(market.outcomeYesPrice);
-              const noPrice = parseFloat(market.outcomeNoPrice);
-              const yesPercent = (yesPrice * 100).toFixed(1);
-              const noPercent = (noPrice * 100).toFixed(1);
+          {markets.map((market) => {
+            const yesPrice = parseFloat(market.outcomeYesPrice);
+            const noPrice = parseFloat(market.outcomeNoPrice);
+            const yesPercent = (yesPrice * 100).toFixed(1);
+            const noPercent = (noPrice * 100).toFixed(1);
 
-              return (
-                <motion.div
-                  key={market.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  layout
-                >
+            return (
+              <motion.div
+                key={market.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
+                layoutId={`market-${market.id}`}
+              >
                   <Card
                     className="rounded-none cursor-pointer hover:border-foreground/30 transition-all hover:shadow-sm"
                     onClick={() => setSelectedMarketId(market.id)}
@@ -395,42 +445,45 @@ export function MarketsList() {
                   )}
                 </CardContent>
               </Card>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
-      {meta && meta.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {meta.currentPage} of {meta.totalPages} ({meta.total} total)
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => setMarketsPage(Math.max(1, marketsPage - 1))}
-              disabled={marketsPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() =>
-                setMarketsPage(Math.min(meta.totalPages, marketsPage + 1))
-              }
-              disabled={marketsPage === meta.totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Infinite scroll trigger and loading indicator */}
+      <div ref={loadMoreRef} className="py-8 flex flex-col items-center justify-center gap-4">
+        {isFetchingNextPage && (
+          <>
+            <div className="flex items-center gap-2 text-sm text-foreground dark:text-gray-300">
+              <div className="h-4 w-4 border-2 border-foreground dark:border-gray-300 border-t-transparent rounded-full animate-spin" />
+              <span>Loading more markets...</span>
+            </div>
+            {/* Show skeleton loaders while fetching */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={`loading-${i}`} className="rounded-none dark:border-0">
+                  <CardHeader>
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
