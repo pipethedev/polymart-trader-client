@@ -76,7 +76,6 @@ export function useUsdcBalance(address?: string) {
           `/orders/usdc/balance/${walletAddress}`,
         );
         const balance = parseFloat(response.data.balance);
-        console.log('USDC Balance fetched:', { walletAddress, balance, raw: response.data.balance });
         return balance;
       } catch (error) {
         console.error('Failed to fetch USDC balance:', error);
@@ -104,7 +103,6 @@ export function useUsdcAllowance(address?: string) {
           serverWallet: string;
         }>(`/orders/usdc/allowance/${walletAddress}`);
         const allowance = parseFloat(response.data.allowance);
-        console.log('USDC Allowance fetched:', { walletAddress, allowance, raw: response.data.allowance });
         return allowance;
       } catch (error) {
         console.error('Failed to fetch USDC allowance:', error);
