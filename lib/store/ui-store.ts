@@ -117,6 +117,7 @@ export const useUIStore = create<UIState>()(
     {
       name: 'polymarket-trader-ui',
       partialize: (state) => ({ theme: state.theme }),
+      skipHydration: true,
     }
   )
 );
