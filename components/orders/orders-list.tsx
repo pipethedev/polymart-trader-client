@@ -340,6 +340,7 @@ export function OrdersList() {
                             size="sm"
                             onClick={() => handleCancel(order.id)}
                             disabled={cancelOrderMutation.isPending}
+                            className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             Cancel
                           </Button>

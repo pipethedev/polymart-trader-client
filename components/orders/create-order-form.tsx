@@ -155,9 +155,10 @@ export function CreateOrderForm() {
         }
         
         if (usdcAllowance < requiredUsdc) {
+          const needsApproval = requiredUsdc - usdcAllowance;
           toast.error(
-            `Insufficient USDC allowance. Required: ${requiredUsdc.toFixed(2)} USDC, Approved: ${usdcAllowance.toFixed(2)} USDC. ` +
-            `Please approve USDC spending first.`
+            `Insufficient USDC spending approval. You have approved ${usdcAllowance.toFixed(2)} USDC, but this order requires ${requiredUsdc.toFixed(2)} USDC. ` +
+            `Please approve at least ${needsApproval.toFixed(2)} more USDC. Note: Having USDC balance is different from approving spending.`
           );
           return;
         }
@@ -431,15 +432,28 @@ export function CreateOrderForm() {
                             return null;
                           }
                           
-                          const hasInsufficientAllowance = requiredAmount > (usdcAllowance + 0.01);
+                          const hasInsufficientAllowance = requiredAmount > usdcAllowance;
+                          const shouldShowProactiveApproval = usdcAllowance < (requiredAmount * 2);
                           
-                          if (hasInsufficientAllowance) {
+                          if (hasInsufficientAllowance || shouldShowProactiveApproval) {
                             const approvalAmount = (requiredAmount * 1.2).toFixed(2);
                             
                             return (
                               <div className="space-y-2 mt-3">
-                                <div className="text-sm text-amber-600 dark:text-amber-400">
-                                  Please approve USDC spending to continue
+                                <div className={`text-sm ${hasInsufficientAllowance ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                  {hasInsufficientAllowance ? (
+                                    <>
+                                      Insufficient USDC spending approval. You have approved {usdcAllowance.toFixed(2)} USDC, but need {requiredAmount.toFixed(2)} USDC.
+                                      <br />
+                                      <span className="text-xs mt-1 block">
+                                        Note: Having USDC balance is different from approving spending. Click below to approve more USDC.
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      You have sufficient allowance ({usdcAllowance.toFixed(2)} USDC) for this order, but you can approve more for future larger orders.
+                                    </>
+                                  )}
                                 </div>
                                 {gasEstimate && (
                                   <div className="text-xs text-gray-500 dark:text-gray-400">

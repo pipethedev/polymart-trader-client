@@ -252,6 +252,7 @@ export function OrderDetail() {
                 variant="destructive"
                 onClick={handleCancel}
                 disabled={cancelOrderMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {cancelOrderMutation.isPending ? 'Cancelling...' : 'Cancel Order'}
               </Button>

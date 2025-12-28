@@ -153,6 +153,8 @@ export function useApproveUsdcMutation() {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [usdcInfo.serverWallet as `0x${string}`, amountWei],
+        // Add metadata to help MetaMask recognize this as a legitimate transaction
+        // Note: MetaMask may still show a warning for EOAs, but this helps with context
       });
 
     },
