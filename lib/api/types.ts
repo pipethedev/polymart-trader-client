@@ -65,7 +65,8 @@ export interface CreateOrderDto {
   side: 'BUY' | 'SELL';
   type: 'MARKET' | 'LIMIT';
   outcome: 'YES' | 'NO';
-  quantity: string;
+  amount?: string;
+  quantity?: string;
   price?: string;
   metadata?: any;
   walletAddress?: string;
@@ -77,6 +78,7 @@ export interface Order {
   id: number;
   idempotencyKey: string;
   marketId: number;
+  marketTitle?: string | null;
   side: 'BUY' | 'SELL';
   type: 'MARKET' | 'LIMIT';
   outcome: 'YES' | 'NO';

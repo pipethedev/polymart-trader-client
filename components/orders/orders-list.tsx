@@ -30,7 +30,6 @@ const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
 export function OrdersList() {
   const {
     setSelectedOrderId,
-    setCreateOrderDialogOpen,
   } = useUIStore();
   const [marketIdFilter, setMarketIdFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -174,9 +173,6 @@ export function OrdersList() {
             </Button>
           )}
         </div>
-        <Button onClick={() => setCreateOrderDialogOpen(true)}>
-          Create Order
-        </Button>
       </div>
 
       {showFilters && (
@@ -288,7 +284,7 @@ export function OrdersList() {
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
+                      <div className="flex-1 space-y-2 border-r border-dashed pr-4">
                         <div className="flex items-center gap-3 flex-wrap">
                           <Badge variant={order.side === 'BUY' ? 'success' : 'error'}>
                             {order.side}
@@ -311,12 +307,22 @@ export function OrdersList() {
                             {order.type}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-muted-foreground">Market:</span>
-                          <span className="font-medium">#{order.marketId}</span>
+                        <div className="flex items-center gap-4 text-sm flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">Market:</span>
+                            <span className="font-medium">#{order.marketId}</span>
+                            {order.marketTitle && (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                            {order.marketTitle && (
+                              <span className="font-medium text-foreground max-w-md truncate" title={order.marketTitle}>
+                                {order.marketTitle}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-muted-foreground">Qty:</span>
                           <span className="font-mono font-semibold">
-                            {parseFloat(order.quantity).toFixed(4)}
+                            {order.quantity ? parseFloat(order.quantity).toFixed(4) : 'N/A'}
                           </span>
                           {order.price && (
                             <>

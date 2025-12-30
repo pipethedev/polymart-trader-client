@@ -16,16 +16,17 @@ export function normalizeError(error: unknown): NormalizedError {
         const responseData = response.data as Record<string, unknown>;
         
         if (responseData.message && typeof responseData.message === 'string') {
+          const normalized = normalizeErrorMessage(responseData.message);
           return {
-            message: responseData.message,
-            title: responseData.code && typeof responseData.code === 'string' 
+            ...normalized,
+            title: normalized.title || (responseData.code && typeof responseData.code === 'string' 
               ? responseData.code.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-              : undefined,
-            details: responseData.details 
+              : undefined),
+            details: normalized.details || (responseData.details 
               ? typeof responseData.details === 'string' 
                 ? responseData.details 
                 : JSON.stringify(responseData.details, null, 2)
-              : undefined,
+              : undefined),
           };
         }
       }
@@ -144,11 +145,62 @@ function normalizeErrorMessage(message: string, originalError?: unknown): Normal
     };
   }
 
+  if (lowerMessage.includes('order') && lowerMessage.includes('not found')) {
+    return {
+      title: 'Order Not Found',
+      message: 'The order you are looking for could not be found.',
+      details: 'The order may have been deleted or the ID may be incorrect. Please check the order ID and try again.',
+    };
+  }
+
+  if (lowerMessage.includes('market') && lowerMessage.includes('not found')) {
+    return {
+      title: 'Market Not Found',
+      message: 'The market you are looking for could not be found.',
+      details: 'The market may have been removed or the ID may be incorrect.',
+    };
+  }
+
   if (lowerMessage.includes('market not active') || lowerMessage.includes('market is closed')) {
     return {
       title: 'Market Not Available',
       message: 'This market is not currently accepting orders.',
       details: 'The market may be closed or inactive.',
+    };
+  }
+
+  if (lowerMessage.includes('cannot be cancelled') || lowerMessage.includes('not cancellable')) {
+    if (lowerMessage.includes('filled')) {
+      return {
+        title: 'Order Already Filled',
+        message: 'This order has already been filled and cannot be cancelled.',
+        details: 'Filled orders cannot be cancelled. If you need to close your position, you can place an opposite order.',
+      };
+    }
+    if (lowerMessage.includes('cancelled')) {
+      return {
+        title: 'Order Already Cancelled',
+        message: 'This order has already been cancelled.',
+      };
+    }
+    if (lowerMessage.includes('failed')) {
+      return {
+        title: 'Order Failed',
+        message: 'This order has failed and cannot be cancelled.',
+        details: 'Failed orders are already in a final state.',
+      };
+    }
+    if (lowerMessage.includes('processing')) {
+      return {
+        title: 'Order Being Processed',
+        message: 'This order is currently being processed and cannot be cancelled.',
+        details: 'Please wait for the order to complete or fail.',
+      };
+    }
+    return {
+      title: 'Cannot Cancel Order',
+      message: 'This order cannot be cancelled in its current state.',
+      details: 'Only pending or queued orders can be cancelled.',
     };
   }
 

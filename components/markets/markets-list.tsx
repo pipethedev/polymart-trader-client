@@ -437,7 +437,7 @@ export function MarketsList() {
                     </div>
                   </div>
                   {market.volume && (
-                    <div className="flex items-center justify-end text-[11px] text-muted-foreground pt-2.5 border-t border-border/50">
+                    <div className="flex items-center justify-end text-[11px] text-muted-foreground pt-2.5 border-t border-dashed border-border/50">
                       <span className="font-medium">
                         Vol: {formatVolume(market.volume)}
                       </span>

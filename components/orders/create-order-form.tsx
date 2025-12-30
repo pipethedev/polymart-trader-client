@@ -35,18 +35,21 @@ import { Badge } from '@/components/ui/badge';
 import { formatVolume } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { normalizeError } from '@/lib/utils/error-normalizer';
+import type { CreateOrderDto } from '@/lib/api/types';
 
 interface FormValues {
   marketId: string;
   side: 'BUY' | 'SELL';
   type: 'MARKET' | 'LIMIT';
   outcome: 'YES' | 'NO';
-  quantity: string;
-  price: string;
   amount: string;
+  price?: string;
 }
 
 const MINIMUM_ORDER_VALUE = 1.0;
+
+const MIN_PRICE = 0.001;
+const MAX_PRICE = 0.999;
 
 const validationSchema = Yup.object().shape({
   marketId: Yup.string().required('Market ID is required'),
@@ -64,8 +67,18 @@ const validationSchema = Yup.object().shape({
         }),
       otherwise: (schema) => schema.notRequired(),
     }),
-  price: Yup.string(),
-  quantity: Yup.string(),
+  price: Yup.string()
+    .when('type', {
+      is: 'LIMIT',
+      then: (schema) => schema
+        .required('Price is required for LIMIT orders')
+        .test('valid-price', `Price must be between $${MIN_PRICE} and $${MAX_PRICE}`, function (value) {
+          if (!value) return false;
+          const num = parseFloat(value);
+          return !isNaN(num) && num >= MIN_PRICE && num <= MAX_PRICE;
+        }),
+      otherwise: (schema) => schema.notRequired(),
+    }),
 });
 
 export function CreateOrderForm() {
@@ -89,9 +102,8 @@ export function CreateOrderForm() {
         side: createOrderPrefill.side || 'BUY',
         type: createOrderPrefill.type || 'LIMIT',
         outcome: createOrderPrefill.outcome || 'YES',
-        quantity: '',
-        price: createOrderPrefill.price || '',
         amount: '',
+        price: createOrderPrefill.price || '',
       };
     }
     return {
@@ -99,9 +111,8 @@ export function CreateOrderForm() {
       side: 'BUY',
       type: 'LIMIT',
       outcome: 'YES',
-      quantity: '',
-      price: '',
       amount: '',
+      price: '',
     };
   };
 
@@ -117,20 +128,6 @@ export function CreateOrderForm() {
       }
 
       if (values.side === 'BUY') {
-        if (values.amount) {
-          const currentPrice = values.outcome === 'YES' 
-            ? parseFloat(market?.outcomeYesPrice || '0.5')
-            : parseFloat(market?.outcomeNoPrice || '0.5');
-          
-          if (currentPrice > 0) {
-            values.quantity = (parseFloat(values.amount) / currentPrice).toFixed(8);
-            
-            if (values.type === 'LIMIT') {
-              values.price = currentPrice.toFixed(2);
-            }
-          }
-        }
-
         const orderAmount = values.amount ? parseFloat(values.amount) : 0;
         const bufferAmount = orderAmount * 0.01;
         const gasFeeUsd = gasEstimate ? parseFloat(gasEstimate.estimatedGasUsd) : 0.0003;
@@ -167,16 +164,16 @@ export function CreateOrderForm() {
       const idempotencyKey = crypto.randomUUID();
       const nonce = generateNonce();
 
-      const orderParams = {
+      const orderParams: CreateOrderDto = {
         marketId: parseInt(values.marketId),
         side: values.side,
         type: values.type,
         outcome: values.outcome,
-        quantity: values.quantity,
-        price: values.type === 'LIMIT' ? values.price : undefined,
+        amount: values.side === 'BUY' ? String(values.amount) : undefined,
+        price: values.type === 'LIMIT' ? (values.price ? String(values.price) : undefined) : undefined,
       };
 
-      const { signature, message } = await signOrderMessage(orderParams, nonce);
+      const { signature } = await signOrderMessage(orderParams, nonce);
 
       await createOrderMutation.mutateAsync({
         order: {
@@ -366,28 +363,32 @@ export function CreateOrderForm() {
                             {...field}
                             onChange={(e) => {
                               field.onChange(e);
-                              const amount = parseFloat(e.target.value);
-                              if (!amount) return;
-                              
-                              const currentPrice = values.outcome === 'YES' 
-                                ? parseFloat(market?.outcomeYesPrice || '0.5')
-                                : parseFloat(market?.outcomeNoPrice || '0.5');
-                              
-                              if (currentPrice > 0) {
-                                form.setFieldValue('quantity', (amount / currentPrice).toFixed(8));
-                                
-                                if (values.type === 'LIMIT') {
-                                  form.setFieldValue('price', currentPrice.toFixed(2));
-                                }
-                              }
                             }}
                           />
                         )}
                       </Field>
                     </div>
                   )}
-                  <Field name="quantity" type="hidden" />
-                  <Field name="price" type="hidden" />
+                  
+                  {values.type === 'LIMIT' && (
+                    <div className="grid gap-2">
+                      <Label htmlFor="price">Limit Price *</Label>
+                      <Field name="price">
+                        {({ field }: FieldProps) => (
+                          <Input
+                            id="price"
+                            type="number"
+                            step="0.001"
+                            min={MIN_PRICE}
+                            max={MAX_PRICE}
+                            placeholder={`Between $${MIN_PRICE} and $${MAX_PRICE}`}
+                            autoComplete="off"
+                            {...field}
+                          />
+                        )}
+                      </Field>
+                    </div>
+                  )}
                 </div>
 
                 {isConnected && address && values.side === 'BUY' && (

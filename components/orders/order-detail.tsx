@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, AlertCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateFull } from '@/lib/utils/date';
+import { isValid, parseISO } from 'date-fns';
 import { normalizeError } from '@/lib/utils/error-normalizer';
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -137,11 +138,19 @@ export function OrderDetail() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="col-span-2">
               <div className="text-sm font-medium text-muted-foreground">
-                Market ID
+                Market
               </div>
-              <div>{order.marketId}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">#{order.marketId}</span>
+                {order.marketTitle && (
+                  <>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="text-foreground">{order.marketTitle}</span>
+                  </>
+                )}
+              </div>
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">
@@ -167,7 +176,9 @@ export function OrderDetail() {
               <div className="text-sm font-medium text-muted-foreground">
                 Quantity
               </div>
-              <div className="font-mono">{parseFloat(order.quantity).toFixed(4)}</div>
+              <div className="font-mono">
+                {order.quantity ? parseFloat(order.quantity).toFixed(4) : 'N/A'}
+              </div>
             </div>
             {order.price && (
               <div>
@@ -219,12 +230,19 @@ export function OrderDetail() {
               </div>
               <div>{formatDateFull(order.createdAt)}</div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Updated At
-              </div>
-              <div>{formatDateFull(order.updatedAt)}</div>
-            </div>
+            {order.updatedAt && (() => {
+              const updatedDate = typeof order.updatedAt === 'string' 
+                ? parseISO(order.updatedAt) 
+                : new Date(order.updatedAt);
+              return isValid(updatedDate) ? (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Updated At
+                  </div>
+                  <div>{formatDateFull(order.updatedAt)}</div>
+                </div>
+              ) : null;
+            })()}
           </div>
 
           {order.failureReason && order.status !== 'FAILED' && (() => {
